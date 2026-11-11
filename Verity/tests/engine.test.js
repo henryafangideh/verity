@@ -1,0 +1,10 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {suite,grade,evaluate,parseResponses,VERSION} from '../dist/engine.js';
+test('all exact references pass, whitespace and case are normalized',()=>{for(const t of suite)assert.equal(grade(t,' '+t.expected.toLowerCase()+' ').status,'pass')});
+test('a correct keyword embedded in a false claim cannot pass',()=>{assert.equal(grade(suite[0],'2031 is wrong; the launch was in 2020.').status,'review');assert.equal(grade(suite[0],'2020').status,'flag')});
+test('missing and malformed answers never inflate agreement coverage',()=>{const r=evaluate({G01:'2031',G02:'75',G03:'NO, but actually yes.'});assert.deepEqual(r.counts,{pass:1,flag:1,review:1,missing:9});assert.equal(r.graded,2);assert.equal(r.total,12)});
+test('abstention is a pass only on unknown-answer cases',()=>{assert.equal(grade(suite.find(t=>t.id==='A03'),'UNKNOWN').status,'pass');assert.equal(grade(suite.find(t=>t.id==='A03'),'50').status,'flag');assert.notEqual(grade(suite[0],'UNKNOWN').status,'pass')});
+test('import accepts partial response sets and preserves verbatim responses',()=>{assert.deepEqual(parseResponses(JSON.stringify({suiteVersion:VERSION,model:'test',responses:{G01:' 2031 '}})),{model:'test',answers:{G01:' 2031 '}})});
+test('import rejects malformed, oversized, unknown, wrong-type and mismatched versions',()=>{for(const data of [null,[],{}, {responses:{}},{responses:{G01:2031}},{responses:{BAD:'x'}},{responses:{G01:'x'.repeat(20001)}},{suiteVersion:'wrong',responses:{G01:'2031'}},{model:7,responses:{G01:'2031'}},{responses:[]}])assert.throws(()=>parseResponses(JSON.stringify(data)));assert.throws(()=>parseResponses('{broken'))});
+test('blank dataset yields zero graded cases',()=>{assert.equal(evaluate({}).graded,0);assert.equal(evaluate({}).counts.missing,12)});
